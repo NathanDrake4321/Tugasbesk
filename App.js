@@ -1,107 +1,30 @@
-// Mini Project - Pertemuan 3-4: RESTful API CRUD dengan Express.js
-// SoundFlow API Implementation
+// app.js
 
-const express = require("express");
+// 1. Load Environment Variable menggunakan dotenv (Paling atas)
+require('dotenv').config();
+
+const express = require('express');
+const cors = require('cors'); // 2. Konfigurasi CORS
 const app = express();
-const PORT = 3000;
 
+// Menggunakan PORT dari .env dengan fallback 3000
+const PORT = process.env.PORT || 3000;
+
+// 3. Middleware Logger Kustom (Mencatat method, URL, dan waktu setiap request)
+const logger = (req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+};
+
+// Daftarkan middleware global SEBELUM route lain
+app.use(logger);
+app.use(cors());
 app.use(express.json());
 
-// Data Sementara (Array in-memory)
-let song = [
-  {
-    id: 1,
-    title: 'Starboy',
-    artist: 'The Weeknd',
-    album: 'Starboy',
-    genre: 'R&B / Pop',
-    duration: '03:50',
-    isPremium: false
-  },
-  {
-    id: 2,
-    title: 'Blinding Lights',
-    artist: 'The Weeknd',
-    album: 'After Hours',
-    genre: 'Synthwave',
-    duration: '03:20',
-    isPremium: true
-  },
-  {
-    id: 3,
-    title: 'Kill Bill',
-    artist: 'SZA',
-    album: 'SOS',
-    genre: 'R&B',
-    duration: '02:33',
-    isPremium: false
-  },
-  {
-    id: 4,
-    title: 'Evaluasi',
-    artist: 'Hindia',
-    album: 'Menari dengan Bayangan',
-    genre: 'Indie Pop',
-    duration: '03:24',
-    isPremium: false
-  },
-  {
-    id: 5,
-    title: 'Gagal Bersembunyi',
-    artist: 'The Rain',
-    album: 'Jabat Erat',
-    genre: 'Pop Rock',
-    duration: '04:12',
-    isPremium: false
-  },
-  {
-    id: 6,
-    title: 'Komang',
-    artist: 'Raim Laode',
-    album: 'Komang - Single',
-    genre: 'Indie Folk',
-    duration: '03:42',
-    isPremium: false
-  },
-  {
-    id: 7,
-    title: 'Sial',
-    artist: 'Mahalini',
-    album: 'Fabula',
-    genre: 'Pop',
-    duration: '04:03',
-    isPremium: true
-  },
-  {
-    id: 8,
-    title: 'As It Was',
-    artist: 'Harry Styles',
-    album: "Harry's House",
-    genre: 'Synth-pop',
-    duration: '02:47',
-    isPremium: false
-  },
-  {
-    id: 9,
-    title: 'Numb',
-    artist: 'Linkin Park',
-    album: 'Meteora',
-    genre: 'Alternative Rock',
-    duration: '03:07',
-    isPremium: true
-  },
-  {
-    id: 10,
-    title: 'Untunglah, Hari Ini Kita Masih Bernapas',
-    artist: 'Lomba Sihir',
-    album: 'Selamat Datang di Ujung Dunia',
-    genre: 'Indie Rock',
-    duration: '03:55',
-    isPremium: false
-  }
-];
+// Import Routes
+const songRouter = require('./ROUTES/SongRouter');
 
-// 0. ROOT ROUTE
+// Main Root Route
 app.get('/', (req, res) => {
   res.status(200).json({
     status: 'success',
@@ -116,107 +39,20 @@ app.get('/', (req, res) => {
   });
 });
 
-//1. GET ALL SONGS
-app.get('/song', (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    total: song.length,
-    data: song
+// Register Module Routes
+app.use('/song', songRouter);
+
+// 4. Middleware Error-Handling Terpusat (Wajib di bagian paling bawah setelah seluruh route)
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    status: 'fail',
+    message: err.message || 'Terjadi kesalahan pada server'
   });
 });
 
-// 2. GET SONG BY ID
-app.get('/song/:id', (req, res) => {
-  const songId = parseInt(req.params.id);
-  const foundSong = song.find(s => s.id === songId);
-
-  if (!foundSong) {
-    return res.status(404).json({
-      status: 'fail',
-      message: `Lagu dengan ID ${songId} tidak ditemukan`
-    });
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: foundSong
-  });
-});
-
-// 3. POST NEW SONG
-app.post("/song", (req, res) => {
-  const { title, artist, album, genre, duration, isPremium } = req.body;
-
-  if (!title || !artist) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'Judul (title) dan Artis (artist) wajib diisi'
-    });
-  }
-
-  const newSong = {
-    id: song.length ? song[song.length - 1].id + 1 : 1,
-    title,
-    artist,
-    album: album || 'Single',
-    genre: genre || 'General',
-    duration: duration || '00:00',
-    isPremium: isPremium || false,
-  };
-
-  song.push(newSong);
-
-  res.status(201).json({
-    status: 'success',
-    message: "Song berhasil ditambahkan",
-    data: newSong
-  });
-});
-
-// 4. PUT UPDATE SONG
-app.put("/song/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  const index = song.findIndex(s => s.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({
-      status: "fail",
-      message: "Song tidak ditemukan"
-    });
-  }
-
-  const updatedSong = { ...song[index], ...req.body };
-  song[index] = updatedSong;
-
-  res.status(200).json({
-    status: "success",
-    message: "Song berhasil diperbarui",
-    data: updatedSong
-  });
-});
-
-// 5. DELETE SONG
-app.delete("/song/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  const index = song.findIndex(s => s.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({
-      status: "fail",
-      message: "Song tidak ditemukan"
-    });
-  }
-
-  const deleted = song.splice(index, 1);
-
-  res.status(200).json({
-    status: "success",
-    message: "Song berhasil dihapus",
-    data: deleted[0]
-  });
-});
-
-// Jalankan Server
+// Server Listening
 app.listen(PORT, () => {
   console.log(`Server SoundFlow API berjalan di http://localhost:${PORT}`);
 });
